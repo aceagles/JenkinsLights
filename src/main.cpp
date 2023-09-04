@@ -1,9 +1,8 @@
 #include <Arduino.h>
-#include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
-//needed for library
+#include <ESP8266WiFi.h>         
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
-#include <WiFiManager.h>         //https://github.com/tzapu/WiFiManager
+#include <WiFiManager.h>         
 
 ESP8266WebServer server(80);
 
@@ -16,12 +15,15 @@ struct LEDControl {
         
     }
     void initialise(){
-      pinMode(pin, OUTPUT);
       digitalWrite(pin, LOW);
+      pinMode(pin, OUTPUT);
+      
     }
     
     void setState(String newState) {
-        state = newState;
+        if (newState == "ON" || newState == "OFF" || newState == "STROBE"){
+          state = newState;
+        }
         if(state == "ON")
           digitalWrite(pin, HIGH);
           
@@ -32,24 +34,27 @@ struct LEDControl {
     }
     
     void toggle() {
-        if (state == "STROBE") {
-            Serial.println(color);
-            digitalWrite(pin, !digitalRead(pin));
-        }
+      // Toggles the pin if in STROBE mode
+      if (state == "STROBE") {
+          digitalWrite(pin, !digitalRead(pin));
+      }
     }
 };
+
+// Array of leds for control
 LEDControl leds[] = {
       LEDControl(5, "RED"),
       LEDControl(4, "GREEN"),
-      LEDControl(0, "AMBER"),
-      LEDControl(2, "BLUE")
+      LEDControl(14, "AMBER"),
+      LEDControl(15, "BLUE")
   };
+
 const int numLeds = 4;
 int findStringIndex(String& target) {
+    // This should really use the leds array but since this is a one off won't bother
     String colors[] = {"RED", "GREEN", "AMBER", "BLUE"};
     for (int i = 0; i < 4; ++i) {
         if (target == colors[i]) {
-            Serial.println(i);
             return i; // Return the index if a match is found
         }
     }
@@ -61,8 +66,9 @@ void handleRoot() {
   String color = server.arg("COLOUR");
   Serial.println(mode);
   Serial.println(color);
-
-  leds[findStringIndex(color)].setState(mode);
+  // Select the correct LED using the find index function then setmode
+  if(findStringIndex(color) >= 0)
+    leds[findStringIndex(color)].setState(mode);
 
   server.send(200, "text/plain", "OK");
 }
@@ -70,6 +76,9 @@ void handleRoot() {
 
 
 void setup() {
+  for (int i = 0; i < numLeds; ++i) {
+        leds[i].initialise();
+    }
   // put your setup code here, to run once:
   Serial.begin(115200);
 
@@ -83,9 +92,7 @@ void setup() {
   server.on("/", handleRoot);
   server.begin();
   //Create an array of LED instances
-  for (int i = 0; i < numLeds; ++i) {
-        leds[i].initialise();
-    }
+  
 }
 
 int loopcount = 0;
